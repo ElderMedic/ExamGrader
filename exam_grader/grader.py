@@ -5,15 +5,27 @@ from typing import Optional, List, Dict, Any
 from PIL import Image
 from .screenshot import ScreenshotCapture
 from .vllm_client import VLLMClient
+from .config import Config
 
 
 class ExamGrader:
     """Main exam grading class"""
     
-    def __init__(self, vllm_api_base: str = "http://localhost:8000/v1",
-                 model_name: str = "deepseek-ocr"):
+    def __init__(self, vllm_api_base: Optional[str] = None,
+                 model_name: Optional[str] = None,
+                 config: Optional[Config] = None,
+                 config_path: Optional[str] = None):
+        """Initialize ExamGrader
+        
+        Args:
+            vllm_api_base: Base URL for vLLM API (overrides config if provided)
+            model_name: Model name (overrides config if provided)
+            config: Config instance (creates default if None)
+            config_path: Path to config file (used if config is None)
+        """
+        self.config = config or Config(config_path)
         self.screenshot_capture = ScreenshotCapture()
-        self.vllm_client = VLLMClient(vllm_api_base, model_name)
+        self.vllm_client = VLLMClient(vllm_api_base, model_name, self.config)
     
     def grade_single_answer(self, image: Image.Image,
                            reference_answer: Optional[str] = None,
@@ -31,13 +43,22 @@ class ExamGrader:
             image = self.screenshot_capture.capture_full_screen()
         return self.grade_single_answer(image, reference_answer, question_context)
     
-    def periodic_grading(self, interval: float, duration: float,
+    def periodic_grading(self, interval: Optional[float] = None,
+                        duration: Optional[float] = None,
                         region: Optional[dict] = None,
                         reference_answer: Optional[str] = None,
                         question_context: Optional[str] = None,
-                        save_screenshots: bool = False,
-                        output_dir: str = "./screenshots") -> List[Dict[str, Any]]:
+                        save_screenshots: Optional[bool] = None,
+                        output_dir: Optional[str] = None) -> List[Dict[str, Any]]:
         """Periodically capture and grade screenshots"""
+        screenshot_config = self.config.get_screenshot_config()
+        output_config = self.config.get("output", {})
+        
+        interval = interval or screenshot_config.get("default_interval", 5.0)
+        duration = duration or screenshot_config.get("default_duration", 30.0)
+        save_screenshots = save_screenshots if save_screenshots is not None else output_config.get("save_screenshots", False)
+        output_dir = output_dir or screenshot_config.get("save_dir", "./screenshots")
+        
         if save_screenshots:
             os.makedirs(output_dir, exist_ok=True)
         

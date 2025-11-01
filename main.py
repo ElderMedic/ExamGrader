@@ -3,7 +3,7 @@
 
 import argparse
 import json
-from exam_grader import ExamGrader, ScreenshotCapture
+from exam_grader import ExamGrader, Config
 
 
 def main():
@@ -12,17 +12,21 @@ def main():
     )
     
     parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to configuration file (default: config.yaml)"
+    )
+    
+    parser.add_argument(
         "--api-base",
         type=str,
-        default="http://localhost:8000/v1",
-        help="vLLM API base URL (default: http://localhost:8000/v1)"
+        help="vLLM API base URL (overrides config)"
     )
     
     parser.add_argument(
         "--model",
         type=str,
-        default="deepseek-ocr",
-        help="Model name (default: deepseek-ocr)"
+        help="Model name (overrides config)"
     )
     
     parser.add_argument(
@@ -36,15 +40,13 @@ def main():
     parser.add_argument(
         "--interval",
         type=float,
-        default=5.0,
-        help="Interval between captures in seconds (for periodic mode, default: 5.0)"
+        help="Interval between captures in seconds (overrides config)"
     )
     
     parser.add_argument(
         "--duration",
         type=float,
-        default=30.0,
-        help="Total duration in seconds (for periodic mode, default: 30.0)"
+        help="Total duration in seconds (overrides config)"
     )
     
     parser.add_argument(
@@ -80,11 +82,13 @@ def main():
     parser.add_argument(
         "--screenshot-dir",
         type=str,
-        default="./screenshots",
-        help="Directory to save screenshots (default: ./screenshots)"
+        help="Directory to save screenshots (overrides config)"
     )
     
     args = parser.parse_args()
+    
+    # Load configuration
+    config = Config(args.config)
     
     # Parse region if provided
     region = None
@@ -103,8 +107,12 @@ def main():
         except ValueError:
             print("Warning: Invalid region format. Using full screen.")
     
-    # Initialize grader
-    grader = ExamGrader(args.api_base, args.model)
+    # Initialize grader with config
+    grader = ExamGrader(
+        vllm_api_base=args.api_base,
+        model_name=args.model,
+        config=config
+    )
     
     # Load reference answer if provided
     reference_answer = None
@@ -134,14 +142,14 @@ def main():
         results = [result]
         
     else:  # periodic mode
-        print(f"Starting periodic grading: interval={args.interval}s, duration={args.duration}s")
+        print(f"Starting periodic grading: interval={args.interval or config.get('screenshot.default_interval', 5.0)}s, duration={args.duration or config.get('screenshot.default_duration', 30.0)}s")
         results = grader.periodic_grading(
             interval=args.interval,
             duration=args.duration,
             region=region,
             reference_answer=reference_answer,
             question_context=args.question_context,
-            save_screenshots=args.save_screenshots,
+            save_screenshots=args.save_screenshots if args.save_screenshots else None,
             output_dir=args.screenshot_dir
         )
         
