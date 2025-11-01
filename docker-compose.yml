@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  exam-grader:
+    build: .
+    container_name: exam-grader
+    environment:
+      - VLLM_API_BASE=${VLLM_API_BASE:-http://host.docker.internal:8000/v1}
+      - MODEL_NAME=${MODEL_NAME:-deepseek-ocr}
+    volumes:
+      - ./screenshots:/app/screenshots
+      - ./results:/app/results
+      - ./examples:/app/examples
+    # For Mac/Windows, use host.docker.internal to access host services
+    # For Linux, you may need to use --network=host or specific network config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Uncomment below for Linux to access host display
+    # network_mode: "host"
+    # environment:
+    #   - DISPLAY=${DISPLAY:-:0}
+    # volumes:
+    #   - /tmp/.X11-unix:/tmp/.X11-unix:rw

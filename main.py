@@ -103,18 +103,17 @@ def main():
         except ValueError:
             print("Warning: Invalid region format. Using full screen.")
     
+    # Initialize grader
+    grader = ExamGrader(args.api_base, args.model)
+    
     # Load reference answer if provided
     reference_answer = None
     if args.reference_answer:
         try:
-            grader = ExamGrader(args.api_base, args.model)
             reference_answer = grader.load_reference_answer(args.reference_answer)
             print(f"Loaded reference answer from {args.reference_answer}")
         except Exception as e:
             print(f"Warning: Failed to load reference answer: {e}")
-    
-    # Initialize grader
-    grader = ExamGrader(args.api_base, args.model)
     
     # Execute grading
     if args.mode == "single":
