@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exam-grader"
+version = "0.1.0"
+description = "Automated exam grading helper using vLLM and DeepSeek-OCR"
+authors = [{name = "Cursor User"}]
+requires-python = ">=3.10"
+dependencies = [
+    "mss>=9.0.1",
+    "Pillow>=10.0.0",
+    "typer>=0.9.0",
+    "vllm>=0.4.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+]
+
+[project.scripts]
+exam-grader = "grader.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
