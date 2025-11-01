@@ -8,7 +8,7 @@ from typing import Optional
 import typer
 
 from .screenshot import CaptureRegion, ScreenshotConfig, ScreenshotTaker
-from .vllm_client import GradingRequest, VLLMGrader
+from .vllm_client import GradingRequest, GradingResponse, VLLMGrader
 
 
 app = typer.Typer(help="Automated exam grading helper using vLLM")
@@ -20,12 +20,15 @@ def _load_text(path: Optional[Path]) -> Optional[str]:
     return path.read_text(encoding="utf-8")
 
 
+def _resolve_text(text_opt: Optional[str], file_opt: Optional[Path]) -> Optional[str]:
+    return text_opt if text_opt is not None else _load_text(file_opt)
+
+
 def _build_region(x: int, y: int, width: Optional[int], height: Optional[int]) -> CaptureRegion:
-    region = CaptureRegion(left=x, top=y, width=width, height=height)
-    return region
+    return CaptureRegion(left=x, top=y, width=width, height=height)
 
 
-def _build_request(
+def _make_request(
     image,
     *,
     question: Optional[str],
@@ -42,17 +45,55 @@ def _build_request(
     )
 
 
-def _run_once(
+def _print_response(response: GradingResponse, *, separator: bool = False) -> None:
+    if separator:
+        typer.echo("=" * 40)
+    typer.echo(f"Model raw output: {response.raw_output}")
+    if response.score is not None:
+        typer.echo(f"Parsed score: {response.score}")
+    if response.reason:
+        typer.echo(f"Rationale: {response.reason}")
+
+
+def _prepare_config(
+    *,
+    x: int,
+    y: int,
+    width: Optional[int],
+    height: Optional[int],
+    interval: float,
+    output_dir: Optional[Path],
+) -> ScreenshotConfig:
+    return ScreenshotConfig(
+        region=_build_region(x, y, width, height),
+        interval_seconds=interval,
+        output_dir=output_dir,
+    )
+
+
+def _prepare_context(
+    *,
+    question_text: Optional[str],
+    question_file: Optional[Path],
+    reference_text: Optional[str],
+    reference_file: Optional[Path],
+) -> tuple[Optional[str], Optional[str]]:
+    question = _resolve_text(question_text, question_file)
+    reference = _resolve_text(reference_text, reference_file)
+    return question, reference
+
+
+def _evaluate_image(
     grader: VLLMGrader,
-    taker: ScreenshotTaker,
+    image,
     *,
     question: Optional[str],
     reference: Optional[str],
     max_score: float,
     instructions: Optional[str],
+    separator: bool = False,
 ) -> None:
-    image = taker.capture_once()
-    request = _build_request(
+    request = _make_request(
         image,
         question=question,
         reference=reference,
@@ -60,45 +101,47 @@ def _run_once(
         instructions=instructions,
     )
     response = grader.grade(request)
-    typer.echo(f"????: {response.raw_output}")
-    if response.score is not None:
-        typer.echo(f"????: {response.score}")
-    if response.reason:
-        typer.echo(f"????: {response.reason}")
+    _print_response(response, separator=separator)
 
 
 @app.command()
 def once(
-    model: str = typer.Option("deepseek-ai/deepseek-ocr", help="vLLM ???????"),
-    x: int = typer.Option(0, help="???????"),
-    y: int = typer.Option(0, help="???????"),
-    width: Optional[int] = typer.Option(None, help="??????"),
-    height: Optional[int] = typer.Option(None, help="??????"),
-    interval: float = typer.Option(10.0, help="?????? loop ??????"),
-    output_dir: Optional[Path] = typer.Option(None, help="???????"),
-    question_text: Optional[str] = typer.Option(None, help="????"),
-    question_file: Optional[Path] = typer.Option(None, help="??????"),
-    reference_text: Optional[str] = typer.Option(None, help="???? Markdown ??"),
-    reference_file: Optional[Path] = typer.Option(None, help="???? Markdown ??"),
-    max_score: float = typer.Option(6.0, help="????"),
-    extra_instructions: Optional[str] = typer.Option(None, help="?????"),
+    model: str = typer.Option("deepseek-ai/deepseek-ocr", help="Path of the vLLM model"),
+    x: int = typer.Option(0, help="Screenshot region left offset"),
+    y: int = typer.Option(0, help="Screenshot region top offset"),
+    width: Optional[int] = typer.Option(None, help="Screenshot region width"),
+    height: Optional[int] = typer.Option(None, help="Screenshot region height"),
+    output_dir: Optional[Path] = typer.Option(None, help="Directory to persist captures"),
+    question_text: Optional[str] = typer.Option(None, help="Question text"),
+    question_file: Optional[Path] = typer.Option(None, help="Path to question markdown"),
+    reference_text: Optional[str] = typer.Option(None, help="Reference answer text"),
+    reference_file: Optional[Path] = typer.Option(None, help="Path to reference markdown"),
+    max_score: float = typer.Option(6.0, help="Maximum score"),
+    extra_instructions: Optional[str] = typer.Option(None, help="Additional instructions for the model"),
 ) -> None:
-    """????????????"""
+    """Capture once and grade the answer."""
 
-    reference = reference_text or _load_text(reference_file)
-    question = question_text or _load_text(question_file)
+    question, reference = _prepare_context(
+        question_text=question_text,
+        question_file=question_file,
+        reference_text=reference_text,
+        reference_file=reference_file,
+    )
 
-    config = ScreenshotConfig(
-        region=_build_region(x, y, width, height),
-        interval_seconds=interval,
+    config = _prepare_config(
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        interval=1.0,
         output_dir=output_dir,
     )
 
-    with ScreenshotTaker(config) as taker:
-        grader = VLLMGrader(model=model)
-        _run_once(
+    with ScreenshotTaker(config) as taker, VLLMGrader(model=model) as grader:
+        image = taker.capture_once()
+        _evaluate_image(
             grader,
-            taker,
+            image,
             question=question,
             reference=reference,
             max_score=max_score,
@@ -108,55 +151,55 @@ def once(
 
 @app.command()
 def loop(
-    model: str = typer.Option("deepseek-ai/deepseek-ocr", help="vLLM ???????"),
-    interval: float = typer.Option(10.0, help="?????????"),
-    x: int = typer.Option(0, help="???????"),
-    y: int = typer.Option(0, help="???????"),
-    width: Optional[int] = typer.Option(None, help="??????"),
-    height: Optional[int] = typer.Option(None, help="??????"),
-    output_dir: Optional[Path] = typer.Option(None, help="???????"),
-    question_text: Optional[str] = typer.Option(None, help="????"),
-    question_file: Optional[Path] = typer.Option(None, help="??????"),
-    reference_text: Optional[str] = typer.Option(None, help="???? Markdown ??"),
-    reference_file: Optional[Path] = typer.Option(None, help="???? Markdown ??"),
-    max_score: float = typer.Option(6.0, help="????"),
-    extra_instructions: Optional[str] = typer.Option(None, help="?????"),
-    limit: Optional[int] = typer.Option(None, help="???????????"),
+    model: str = typer.Option("deepseek-ai/deepseek-ocr", help="Path of the vLLM model"),
+    interval: float = typer.Option(10.0, help="Screenshot interval in seconds"),
+    x: int = typer.Option(0, help="Screenshot region left offset"),
+    y: int = typer.Option(0, help="Screenshot region top offset"),
+    width: Optional[int] = typer.Option(None, help="Screenshot region width"),
+    height: Optional[int] = typer.Option(None, help="Screenshot region height"),
+    output_dir: Optional[Path] = typer.Option(None, help="Directory to persist captures"),
+    question_text: Optional[str] = typer.Option(None, help="Question text"),
+    question_file: Optional[Path] = typer.Option(None, help="Path to question markdown"),
+    reference_text: Optional[str] = typer.Option(None, help="Reference answer text"),
+    reference_file: Optional[Path] = typer.Option(None, help="Path to reference markdown"),
+    max_score: float = typer.Option(6.0, help="Maximum score"),
+    extra_instructions: Optional[str] = typer.Option(None, help="Additional instructions for the model"),
+    limit: Optional[int] = typer.Option(None, help="Optional iteration limit for debugging"),
 ) -> None:
-    """?????????????????"""
+    """Capture repeatedly and grade answers at intervals."""
 
-    reference = reference_text or _load_text(reference_file)
-    question = question_text or _load_text(question_file)
+    question, reference = _prepare_context(
+        question_text=question_text,
+        question_file=question_file,
+        reference_text=reference_text,
+        reference_file=reference_file,
+    )
 
-    config = ScreenshotConfig(
-        region=_build_region(x, y, width, height),
-        interval_seconds=interval,
+    config = _prepare_config(
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+        interval=interval,
         output_dir=output_dir,
     )
 
-    with ScreenshotTaker(config) as taker:
-        grader = VLLMGrader(model=model)
-
-        def _callback(image):
-            request = _build_request(
-                image,
-                question=question,
-                reference=reference,
-                max_score=max_score,
-                instructions=extra_instructions,
-            )
-            response = grader.grade(request)
-            typer.echo("=" * 40)
-            typer.echo(f"????: {response.raw_output}")
-            if response.score is not None:
-                typer.echo(f"????: {response.score}")
-            if response.reason:
-                typer.echo(f"????: {response.reason}")
-
+    with ScreenshotTaker(config) as taker, VLLMGrader(model=model) as grader:
         try:
-            taker.capture_with_callback(_callback, limit=limit)
+            taker.capture_with_callback(
+                lambda image: _evaluate_image(
+                    grader,
+                    image,
+                    question=question,
+                    reference=reference,
+                    max_score=max_score,
+                    instructions=extra_instructions,
+                    separator=True,
+                ),
+                limit=limit,
+            )
         except KeyboardInterrupt:
-            typer.echo("????????")
+            typer.echo("Loop interrupted by user.")
 
 
 if __name__ == "__main__":

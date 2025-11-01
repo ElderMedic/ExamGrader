@@ -121,3 +121,9 @@ class VLLMGrader:
     def close(self) -> None:
         self.llm = None
 
+    def __enter__(self) -> "VLLMGrader":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
