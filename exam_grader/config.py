@@ -40,51 +40,65 @@ class Config:
         """Default configuration"""
         return {
             "api": {
-                "base_url": "http://localhost:8000/v1",
-                "model_name": "deepseek-ocr",
+                "base_url": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+                "model_name": "qwen3-vl-flash",
+                "api_key": None,  # Will use DASHSCOPE_API_KEY environment variable if not set
                 "timeout": 60,
-                "max_tokens": 500,
-                "temperature": 0.3,
+                "max_tokens": 2000,
+                "temperature": 0.0,  # 0.0 for deterministic grading
+                "top_p": 1.0,
+                "seed": None,
             },
             "screenshot": {
                 "default_interval": 5.0,
                 "default_duration": 30.0,
                 "save_dir": "./screenshots",
+                "default_monitor": None,  # None means first monitor (index 1)
+                "default_region": None,  # None means full screen
             },
             "prompts": {
-                "system_message": """You are an exam paper grading assistant. Your task is to:
-1. Analyze the student's answer image
-2. Compare it with the reference answer (if provided)
-3. Provide a score (0-100)
-4. Explain your grading rationale briefly
+                "system_message": """你是一个试卷评分助手。你的任务是：
+1. 分析学生的答案图片
+2. 仔细阅读参考答案中的评分标准和要求
+3. 根据参考答案中的评分标准给出相应的分数
+4. 简要说明你的评分理由
 
-Format your response as:
-Score: [0-100]
-Reasoning: [brief explanation]""",
-                "user_message_template": """Please grade this student's answer.
+重要提示：
+- 请仔细查看参考答案中的"Scoring Criteria"（评分标准）部分，了解该题的满分和评分规则
+- 分数范围取决于题目要求，不要假设是百分制
+- 如果参考答案中没有明确说明分数范围，请根据题目难度合理判断
+
+请按以下格式回复：
+识别的学生答案: [从图片中识别出的学生答案内容]
+分数: [实际分数]
+评分理由: [简要说明]""",
+                "user_message_template": """请对这名学生的答案进行评分。
 
 {reference_answer_section}
 
-Please provide: 1) Score (0-100), 2) Brief reasoning for your scoring.""",
+请先识别并输出学生的答案内容，然后仔细阅读参考答案中的评分标准，根据标准给出相应的分数，并提供简要的评分理由。""",
                 "reference_answer_format": """
 
-Reference Answer:
+参考答案：
 ```markdown
 {reference_answer}
 ```""",
                 "question_context_format": """
 
-Question Context: {question_context}""",
+题目上下文：{question_context}""",
             },
             "parsing": {
-                "score_pattern": "Score:\\s*(\\d+)",
-                "reasoning_pattern": "Reasoning:?\\s*(.+)",
+                "student_answer_pattern": "(?:识别的学生答案|Recognized Student Answer|学生答案)[：:]\\s*(.+?)(?=\\n\\s*(?:分数|Score)|\\n\\s*(?:评分理由|Reasoning)|$)",
+                "score_pattern": "(?:分数|Score):\\s*(\\d+(?:\\.\\d+)?)",
+                "reasoning_pattern": "(?:评分理由|Reasoning):?\\s*(.+)",
                 "score_min": 0,
-                "score_max": 100,
+                "score_max": None,  # None means no upper limit, will use reference answer if specified
             },
             "output": {
                 "default_dir": "./results",
                 "save_screenshots": False,
+                "auto_save_records": True,  # Automatically save grading records in periodic mode
+                "records_dir": "./results",
             },
         }
     

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 from exam_grader import ExamGrader, Config
 
 
@@ -20,13 +21,19 @@ def main():
     parser.add_argument(
         "--api-base",
         type=str,
-        help="vLLM API base URL (overrides config)"
+        help="OpenAI compatible API base URL (overrides config)"
     )
     
     parser.add_argument(
         "--model",
         type=str,
         help="Model name (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="API key (overrides config and env)"
     )
     
     parser.add_argument(
@@ -53,6 +60,18 @@ def main():
         "--region",
         type=str,
         help="Screenshot region as 'left,top,width,height' (e.g., '100,100,800,600')"
+    )
+    
+    parser.add_argument(
+        "--monitor",
+        type=int,
+        help="Monitor index to capture (1 for first monitor, 2 for second, etc. Use --list-monitors to see available)"
+    )
+    
+    parser.add_argument(
+        "--list-monitors",
+        action="store_true",
+        help="List all available monitors and exit"
     )
     
     parser.add_argument(
@@ -85,14 +104,40 @@ def main():
         help="Directory to save screenshots (overrides config)"
     )
     
+    parser.add_argument(
+        "--save-records",
+        action="store_true",
+        help="Save grading records (default: enabled in periodic mode)"
+    )
+    
+    parser.add_argument(
+        "--no-save-records",
+        action="store_true",
+        help="Disable automatic saving of grading records"
+    )
+    
+    parser.add_argument(
+        "--records-dir",
+        type=str,
+        help="Directory to save grading records (overrides config)"
+    )
+    
     args = parser.parse_args()
     
     # Load configuration
     config = Config(args.config)
     
+    # List monitors if requested
+    if args.list_monitors:
+        from exam_grader import ScreenshotCapture
+        capture = ScreenshotCapture()
+        capture.print_monitors()
+        return
+    
     # Parse region if provided
     region = None
     if args.region:
+        # Command line region takes precedence
         try:
             parts = [int(x.strip()) for x in args.region.split(',')]
             if len(parts) == 4:
@@ -106,11 +151,29 @@ def main():
                 print("Warning: Invalid region format. Using full screen.")
         except ValueError:
             print("Warning: Invalid region format. Using full screen.")
+    else:
+        # Try to get default region from config
+        screenshot_config = config.get_screenshot_config()
+        default_region = screenshot_config.get("default_region")
+        if default_region and isinstance(default_region, list) and len(default_region) == 4:
+            region = {
+                "left": default_region[0],
+                "top": default_region[1],
+                "width": default_region[2],
+                "height": default_region[3]
+            }
+    
+    # Get monitor index from config or args
+    monitor_index = args.monitor
+    if monitor_index is None:
+        screenshot_config = config.get_screenshot_config()
+        monitor_index = screenshot_config.get("default_monitor")
     
     # Initialize grader with config
     grader = ExamGrader(
         vllm_api_base=args.api_base,
         model_name=args.model,
+        api_key=args.api_key,
         config=config
     )
     
@@ -126,16 +189,23 @@ def main():
     # Execute grading
     if args.mode == "single":
         print("Capturing screenshot and grading...")
+        if reference_answer:
+            print(f"Using reference answer (length: {len(reference_answer)} chars)")
         result = grader.capture_and_grade(
             region=region,
+            monitor_index=monitor_index,
             reference_answer=reference_answer,
-            question_context=args.question_context
+            question_context=args.question_context,
+            save_screenshot=args.save_screenshots,
+            screenshot_path=os.path.join(args.screenshot_dir, "capture_single.png") if (args.save_screenshots and args.screenshot_dir) else None
         )
         
         print("\n=== Grading Result ===")
         if "error" in result:
             print(f"Error: {result['error']}")
         else:
+            if result.get('student_answer'):
+                print(f"Recognized Student Answer: {result.get('student_answer', 'N/A')}")
             print(f"Score: {result.get('score', 'N/A')}")
             print(f"Reasoning: {result.get('reasoning', 'N/A')}")
         
@@ -143,14 +213,28 @@ def main():
         
     else:  # periodic mode
         print(f"Starting periodic grading: interval={args.interval or config.get('screenshot.default_interval', 5.0)}s, duration={args.duration or config.get('screenshot.default_duration', 30.0)}s")
+        # Determine save_records setting
+        save_records = None
+        if args.save_records:
+            save_records = True
+        elif args.no_save_records:
+            save_records = False
+        
+        # Store reference answer file path for records
+        reference_answer_file_path = args.reference_answer if args.reference_answer else None
+        
         results = grader.periodic_grading(
             interval=args.interval,
             duration=args.duration,
             region=region,
+            monitor_index=monitor_index,
             reference_answer=reference_answer,
             question_context=args.question_context,
             save_screenshots=args.save_screenshots if args.save_screenshots else None,
-            output_dir=args.screenshot_dir
+            output_dir=args.screenshot_dir,
+            save_records=save_records,
+            records_dir=args.records_dir,
+            reference_answer_file_path=reference_answer_file_path
         )
         
         print(f"\n=== Completed {len(results)} gradings ===")

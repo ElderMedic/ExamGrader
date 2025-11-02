@@ -1,22 +1,31 @@
-"""Example reference answer file"""
+# Reference Answer for Question 33
 
-# Reference Answer for Question 1
+## 题目信息
+- **题号**: 第33题
+- **满分**: 6分
 
-## Expected Answer
+## 标准答案
 
-The student should demonstrate understanding of the following key points:
+（1）西红柿的表皮有保护作用吗？
+（2）①控制单一变量  ②形成对照
+（3）多次实验
+（4）A西红柿腐烂；B西红柿完好
+（5）西红柿的表皮有保护作用
 
-1. **Concept A**: Explanation of concept A...
-2. **Concept B**: Explanation of concept B...
-3. **Application**: How to apply these concepts...
+## 评分标准 
 
-## Scoring Criteria
+**满分**: 6分
 
-- **Full marks (90-100)**: All key points addressed, clear explanation
-- **Good (70-89)**: Most key points covered, minor omissions
-- **Satisfactory (50-69)**: Basic understanding shown, some key points missing
-- **Needs improvement (0-49)**: Significant gaps in understanding
+**评分细则**:
+- **第(1)问**: 1分 - 正确回答"西红柿的表皮有保护作用吗？"
+- **第(2)问**: 2分 - 每空1分（①控制单一变量、②形成对照），①和②顺序对调不给分，但是其中一个正确可以给1 分，必须出现“单一变量”和“对照”关键词
+- **第(3)问**: 1分 - 正确回答"多次实验"或者"重复实验"等符合实质的答案，可以宽松给分
+- **第(4)问**: 1分 - 正确描述现象（A西红柿腐烂；B西红柿完好），符合事实即可
+- **第(5)问**: 1分 - 正确得出结论（西红柿的表皮有保护作用）
 
-## Additional Notes
+**扣分规则**:
+- 每空错误扣1分
+- 严格按题给分，6 个空 6 分，不要有主观扣分和给分
+- 最低0分
+- 如果模棱两可，可以尝试保持总分在3分及以上
 
-Any additional context or specific requirements for grading...

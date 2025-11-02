@@ -3,48 +3,67 @@
 # Modify this file to customize prompts and settings
 
 # API Configuration
+# OpenAI compatible API (e.g., Alibaba Cloud DashScope)
+# API key can be set via DASHSCOPE_API_KEY environment variable or here
 api:
-  base_url: "http://localhost:8000/v1"
-  model_name: "deepseek-ocr"
+  base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+  model_name: "qwen3-vl-plus"
+  api_key: null  # Set to your API key, or use DASHSCOPE_API_KEY env var
   timeout: 60
-  max_tokens: 500
-  temperature: 0.3
+  max_tokens: 2000  # Maximum tokens for response (should be large enough for complete answers)
+  temperature: 0.0  # Set to 0 for deterministic, reproducible grading (0.0-2.0, lower = more deterministic)
+  top_p: 1.0  # Nucleus sampling parameter (0.0-1.0, 1.0 = consider all tokens, usually used with temperature)
+  seed: null  # Fixed seed for reproducibility (set a number for deterministic outputs, null = random)
 
 # Screenshot Configuration
 screenshot:
   default_interval: 5.0  # seconds
   default_duration: 30.0  # seconds
   save_dir: "./screenshots"
+  # Monitor index: 1 for first monitor, 2 for second, etc.
+  # Use 0 for all monitors combined (full desktop spanning)
+  # Use null/leave empty to use first monitor (default)
+  default_monitor: null  # null means first monitor (index 1)
+  # Default region for fixed area capture (leave null for full screen)
+  # Format: [left, top, width, height]
+  # Example: [100, 100, 800, 600] captures 800x600 area starting at (100, 100)
+  default_region: "80,100,900,400"  # null means full screen
 
 # Grading Prompts
 # Customize these prompts to change how the model grades answers
 prompts:
   # System message sent to the model
   system_message: |
-    You are an exam paper grading assistant. Your task is to:
-    1. Analyze the student's answer image
-    2. Compare it with the reference answer (if provided)
-    3. Provide a score (0-100)
-    4. Explain your grading rationale briefly
+    你是一个试卷评分助手。你的任务是：
+    1. 分析学生的答案图片，理解学生手写字迹的内容
+    2. 仔细阅读参考答案中的评分标准和要求
+    3. 根据参考答案中的评分标准给出相应的分数
+    4. 简要说明你的评分理由，不用分析为什么正确，只说明为什么扣分
 
-    Format your response as:
-    Score: [0-100]
-    Reasoning: [brief explanation]
+    重要提示：
+    - 请仔细查看参考答案中的"Scoring Criteria"（评分标准）部分，了解该题的满分和评分规则
+    - 分数范围取决于题目要求，不要假设是百分制
+    - 如果参考答案中没有明确说明分数范围，请根据题目难度合理判断
+
+    请按以下格式回复：
+    识别的学生答案: [从图片中识别出的学生答案内容]
+    分数: [实际分数]
+    评分理由: [简要说明]
 
   # User message template
   # {reference_answer_section} will be replaced with formatted reference answer if provided
   user_message_template: |
-    Please grade this student's answer.
+    请对这名学生的答案进行评分。
     
     {reference_answer_section}
     
-    Please provide: 1) Score (0-100), 2) Brief reasoning for your scoring.
+    请先识别并输出学生的答案内容，然后仔细阅读参考答案中的评分标准，根据标准给出相应的分数，并提供简要的评分理由。
 
   # Format for reference answer section
   # {reference_answer} will be replaced with actual reference answer
   reference_answer_format: |
     
-    Reference Answer:
+    参考答案：
     ```markdown
     {reference_answer}
     ```
@@ -53,17 +72,20 @@ prompts:
   # {question_context} will be replaced with actual question context
   question_context_format: |
     
-    Question Context: {question_context}
+    题目上下文：{question_context}
 
 # Response Parsing Configuration
 # Adjust these if you need to parse different response formats
 parsing:
-  score_pattern: "Score:\\s*(\\d+)"  # Regex pattern to extract score
-  reasoning_pattern: "Reasoning:?\\s*(.+)"  # Regex pattern to extract reasoning
-  score_min: 0  # Minimum valid score
-  score_max: 100  # Maximum valid score
+  student_answer_pattern: "(?:识别的学生答案|Recognized Student Answer|学生答案)[：:]\\s*(.+?)(?=\\n\\s*(?:分数|Score)|\\n\\s*(?:评分理由|Reasoning)|$)"  # Regex pattern to extract recognized student answer
+  score_pattern: "(?:分数|Score):\\s*(\\d+(?:\\.\\d+)?)"  # Regex pattern to extract score (supports both Chinese and English, and decimal scores)
+  reasoning_pattern: "(?:评分理由|Reasoning):?\\s*(.+)"  # Regex pattern to extract reasoning (supports both Chinese and English)
+  score_min: 0  # Minimum valid score (will be overridden if specified in reference answer)
+  score_max: null  # Maximum valid score (null means no upper limit, will use reference answer if specified)
 
 # Output Configuration
 output:
   default_dir: "./results"
   save_screenshots: false
+  auto_save_records: true  # Automatically save grading records in periodic mode
+  records_dir: "./results"  # Directory to save grading records (defaults to default_dir if not specified)
