@@ -11,7 +11,7 @@ api:
   api_key: null  # Set to your API key, or use DASHSCOPE_API_KEY env var
   timeout: 60
   max_tokens: 2000  # Maximum tokens for response (should be large enough for complete answers)
-  temperature: 0.0  # Set to 0 for deterministic, reproducible grading (0.0-2.0, lower = more deterministic)
+  temperature: 0.2  # Set to 0 for deterministic, reproducible grading (0.0-2.0, lower = more deterministic)
   top_p: 1.0  # Nucleus sampling parameter (0.0-1.0, 1.0 = consider all tokens, usually used with temperature)
   seed: null  # Fixed seed for reproducibility (set a number for deterministic outputs, null = random)
 
@@ -40,10 +40,12 @@ prompts:
     3. 根据参考答案中的评分标准给出相应的分数
     4. 简要说明你的评分理由，不用分析为什么正确，只说明为什么扣分
 
-    重要提示：
-    - 请仔细查看参考答案中的"Scoring Criteria"（评分标准）部分，了解该题的满分和评分规则
-    - 分数范围取决于题目要求，不要假设是百分制
-    - 如果参考答案中没有明确说明分数范围，请根据题目难度合理判断
+    ⚠️ 重要提示 - 必须严格遵守：
+    - **必须严格按照参考答案中的"评分标准"部分进行评分**
+    - **仔细阅读参考答案中的"评分细则"，逐项对照学生答案**
+    - **严格按照参考答案中的"扣分规则"执行**
+    - **分数范围完全由参考答案中的"满分"确定，不要假设是百分制**
+    - **如果参考答案中有具体的给分/扣分说明，必须严格按照执行**
 
     请按以下格式回复：
     识别的学生答案: [从图片中识别出的学生答案内容]
@@ -55,18 +57,35 @@ prompts:
   user_message_template: |
     请对这名学生的答案进行评分。
     
+    ════════════════════════════════════════════════════════════
+    📋 以下是参考答案和评分标准（这是评分的唯一依据）：
+    ════════════════════════════════════════════════════════════
+    
     {reference_answer_section}
     
-    请先识别并输出学生的答案内容，然后仔细阅读参考答案中的评分标准，根据标准给出相应的分数，并提供简要的评分理由。
+    ════════════════════════════════════════════════════════════
+    
+    📝 评分步骤：
+    1. 先识别并输出学生的答案内容
+    2. 逐项对照参考答案中的"评分标准"部分
+    3. 严格按照"评分细则"中的每一条规则给分
+    4. 严格遵循"扣分规则"
+    5. 根据对照结果给出最终分数
+    6. 说明扣分原因（只说明为什么扣分，不用说明为什么正确）
 
   # Format for reference answer section
   # {reference_answer} will be replaced with actual reference answer
   reference_answer_format: |
     
-    参考答案：
+    ⚠️ 参考答案和评分标准（这是评分的唯一依据，必须严格遵守）：
     ```markdown
     {reference_answer}
     ```
+    
+    请特别注意：
+    - 严格按照上述参考答案中的"评分标准"和"评分细则"进行评分
+    - 严格遵守"扣分规则"
+    - 不要自行添加评分规则
 
   # Format for question context
   # {question_context} will be replaced with actual question context
@@ -89,3 +108,7 @@ output:
   save_screenshots: false
   auto_save_records: true  # Automatically save grading records in periodic mode
   records_dir: "./results"  # Directory to save grading records (defaults to default_dir if not specified)
+
+# Reference Answer Configuration
+reference_answer:
+  default_file: "examples/reference_answer.md"  # Default reference answer file path (set to null to disable)

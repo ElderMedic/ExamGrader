@@ -179,10 +179,29 @@ def main():
     
     # Load reference answer if provided
     reference_answer = None
+    reference_answer_path = None
+    
     if args.reference_answer:
+        # Use command line argument (highest priority)
+        reference_answer_path = args.reference_answer
+    else:
+        # Try to load from config default
+        ref_config = config.get("reference_answer", {})
+        default_ref_file = ref_config.get("default_file")
+        if default_ref_file:
+            # Check if file exists (could be relative to project root)
+            from pathlib import Path
+            project_root = Path(__file__).parent
+            default_ref_path = project_root / default_ref_file
+            
+            if default_ref_path.exists():
+                reference_answer_path = str(default_ref_path)
+                print(f"Using default reference answer from config: {default_ref_file}")
+    
+    if reference_answer_path:
         try:
-            reference_answer = grader.load_reference_answer(args.reference_answer)
-            print(f"Loaded reference answer from {args.reference_answer}")
+            reference_answer = grader.load_reference_answer(reference_answer_path)
+            print(f"Loaded reference answer from {reference_answer_path}")
         except Exception as e:
             print(f"Warning: Failed to load reference answer: {e}")
     
@@ -191,6 +210,8 @@ def main():
         print("Capturing screenshot and grading...")
         if reference_answer:
             print(f"Using reference answer (length: {len(reference_answer)} chars)")
+        else:
+            print("⚠️  Warning: No reference answer provided!")
         result = grader.capture_and_grade(
             region=region,
             monitor_index=monitor_index,
@@ -221,7 +242,7 @@ def main():
             save_records = False
         
         # Store reference answer file path for records
-        reference_answer_file_path = args.reference_answer if args.reference_answer else None
+        reference_answer_file_path = reference_answer_path
         
         results = grader.periodic_grading(
             interval=args.interval,

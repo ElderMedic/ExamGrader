@@ -73,6 +73,9 @@ class VLLMClient:
         if reference_answer:
             ref_format = prompts.get("reference_answer_format", "\n\nReference Answer:\n```markdown\n{reference_answer}\n```")
             reference_answer_section = ref_format.format(reference_answer=reference_answer)
+        else:
+            # If no reference answer but template expects it, provide a warning in the section
+            reference_answer_section = "\n\n⚠️ 警告：未提供参考答案。请根据一般评分标准进行评分。"
         
         text_content = user_template.format(reference_answer_section=reference_answer_section)
         
