@@ -1,0 +1,69 @@
+# ExamGrader Configuration File
+# This file contains all customizable prompts and parameters
+# Modify this file to customize prompts and settings
+
+# API Configuration
+api:
+  base_url: "http://localhost:8000/v1"
+  model_name: "deepseek-ocr"
+  timeout: 60
+  max_tokens: 500
+  temperature: 0.3
+
+# Screenshot Configuration
+screenshot:
+  default_interval: 5.0  # seconds
+  default_duration: 30.0  # seconds
+  save_dir: "./screenshots"
+
+# Grading Prompts
+# Customize these prompts to change how the model grades answers
+prompts:
+  # System message sent to the model
+  system_message: |
+    You are an exam paper grading assistant. Your task is to:
+    1. Analyze the student's answer image
+    2. Compare it with the reference answer (if provided)
+    3. Provide a score (0-100)
+    4. Explain your grading rationale briefly
+
+    Format your response as:
+    Score: [0-100]
+    Reasoning: [brief explanation]
+
+  # User message template
+  # {reference_answer_section} will be replaced with formatted reference answer if provided
+  user_message_template: |
+    Please grade this student's answer.
+    
+    {reference_answer_section}
+    
+    Please provide: 1) Score (0-100), 2) Brief reasoning for your scoring.
+
+  # Format for reference answer section
+  # {reference_answer} will be replaced with actual reference answer
+  reference_answer_format: |
+    
+    Reference Answer:
+    ```markdown
+    {reference_answer}
+    ```
+
+  # Format for question context
+  # {question_context} will be replaced with actual question context
+  question_context_format: |
+    
+    Question Context: {question_context}
+
+# Response Parsing Configuration
+# Adjust these if you need to parse different response formats
+parsing:
+  score_pattern: "Score:\\s*(\\d+)"  # Regex pattern to extract score
+  reasoning_pattern: "Reasoning:?\\s*(.+)"  # Regex pattern to extract reasoning
+  score_min: 0  # Minimum valid score
+  score_max: 100  # Maximum valid score
+
+# Output Configuration
+output:
+  default_dir: "./results"
+  save_screenshots: false

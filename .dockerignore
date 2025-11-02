@@ -1,0 +1,26 @@
+# Ignore build artifacts and outputs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Screenshots and results
+screenshots/
+results/
+*.png
+*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.log
